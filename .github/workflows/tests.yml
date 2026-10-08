@@ -6,24 +6,42 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest, macos-15-intel]
         python-version: ["3.10", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install system tools
+      - name: Install Linux system tools
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y tar gzip bzip2 xz-utils zstd
+      - name: Install macOS compression tools
+        if: runner.os == 'macOS'
+        run: brew install xz zstd
       - name: Install package
         run: python -m pip install .
       - name: Run tests
         run: python -m unittest discover -s tests -v
+      - name: Build and install distribution packages
+        if: matrix.os == 'macos-latest' && matrix.python-version == '3.12'
+        run: |
+          python -m pip install build
+          python -m build
+          python -m pip install --force-reinstall --no-deps dist/*.whl
       - name: Check installed commands
         run: |
           ark --help
           uark --help
+      - name: Upload distribution packages
+        if: matrix.os == 'macos-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ark-uark-dist
+          path: dist/*
+          if-no-files-found: error

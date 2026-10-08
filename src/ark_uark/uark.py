@@ -21,6 +21,8 @@ import time
 import unicodedata
 import zipfile
 
+from .tar_tools import tar_program
+
 
 CHUNK = 1024 * 1024
 PART_RE = re.compile(r"^(.*)\.part(\d{4,})$")
@@ -320,7 +322,8 @@ def pump(parts, proc, progress):
             pass
 
 
-def run_stream(parts, command, progress, output=None, show_names=False):
+def run_stream(parts, command, progress, output=None, show_names=False,
+               names_on_stderr=False):
     errors = deque(maxlen=12)
     proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=output or subprocess.PIPE,
                             stderr=subprocess.PIPE)
@@ -332,8 +335,12 @@ def run_stream(parts, command, progress, output=None, show_names=False):
                 progress.current = name
 
     def read_errors():
-        for line in proc.stderr:
-            errors.append(line.decode("utf-8", "replace").rstrip())
+        for raw in proc.stderr:
+            line = raw.decode("utf-8", "replace").rstrip("\r\n")
+            if names_on_stderr and line.startswith("x "):
+                progress.current = line[2:]
+            else:
+                errors.append(line)
 
     threads = [threading.Thread(target=read_errors, daemon=True)]
     if show_names:
@@ -355,14 +362,23 @@ def run_stream(parts, command, progress, output=None, show_names=False):
 
 
 def extract_tar(parts, kind, destination, progress):
+    program, implementation = tar_program()
     option = {"tar": [], "tar.gz": ["-z"], "tar.bz2": ["-j"],
               "tar.xz": ["-J"], "tar.zst": ["--zstd"]}[kind]
-    command = ["tar", *option, "-xvf", "-", "-C", str(destination),
-               "--no-same-owner", "--no-same-permissions", "--no-overwrite-dir",
-               "--warning=no-timestamp", "--quoting-style=escape"]
-    if shutil.which("stdbuf"):
-        command = ["stdbuf", "-oL", *command]
-    run_stream(parts, command, progress, show_names=True)
+    options = ["--no-same-owner", "--no-same-permissions"]
+    if implementation == "gnu":
+        options += ["--no-overwrite-dir", "--warning=no-timestamp",
+                    "--quoting-style=escape"]
+    elif kind == "tar.zst":
+        # Older macOS libarchive versions have no built-in zstd support.
+        option = ["--use-compress-program", "zstd -dcq"]
+    command = [program, *option, "-xvf", "-", "-C", str(destination), *options]
+    if implementation == "gnu":
+        buffer = shutil.which("stdbuf") or shutil.which("gstdbuf")
+        if buffer:
+            command = [buffer, "-oL", *command]
+    run_stream(parts, command, progress, show_names=implementation == "gnu",
+               names_on_stderr=implementation == "bsd")
 
 
 def extract_single(parts, logical_name, kind, destination, progress):

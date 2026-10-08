@@ -17,6 +17,8 @@ import time
 import unicodedata
 import zipfile
 
+from .tar_tools import tar_program
+
 
 CHUNK = 1024 * 1024
 FORMATS = ("tar", "tar.gz", "tar.bz2", "tar.xz", "tar.zst",
@@ -278,16 +280,28 @@ def stream_chunks(stream):
 
 
 def compress_tar(sources, base, fmt, writer, progress):
+    program, implementation = tar_program()
     names = [str(path.relative_to(base)) for path in sources]
-    command = ["tar", "-cvf", "-", "-C", str(base),
-               "--quoting-style=escape", "--", *names]
+    options = ["--quoting-style=escape"]
+    if implementation == "bsd":
+        options = ["--no-xattrs"]
+        if sys.platform == "darwin":
+            options.append("--no-mac-metadata")
+        # BSD tar treats an operand beginning with @ as an archive to include.
+        names = ["./" + name for name in names]
+    command = [program, "-cvf", "-", *options, "-C", str(base), "--", *names]
     tar = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     errors = deque(maxlen=12)
 
     def read_names():
         for raw in tar.stderr:
             line = raw.decode("utf-8", "replace").rstrip("\r\n")
-            if line.startswith("tar: "):
+            if implementation == "bsd":
+                if line.startswith("a "):
+                    progress.current = line[2:]
+                elif line:
+                    errors.append(line)
+            elif line.startswith(("tar: ", f"{Path(program).name}: ")):
                 errors.append(line)
             elif line:
                 progress.current = line

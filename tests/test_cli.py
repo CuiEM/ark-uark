@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 
@@ -62,7 +63,7 @@ class CliTests(unittest.TestCase):
 
     def test_default_format(self):
         if not shutil.which("tar") or not shutil.which("gzip"):
-            self.skipTest("GNU tar and gzip are required")
+            self.skipTest("tar and gzip are required")
         self.command("ark", self.source)
         archive = self.root / "source.tar.gz"
         self.assertTrue(archive.is_file())
@@ -99,9 +100,13 @@ class CliTests(unittest.TestCase):
         self.assertFalse((existing / "nested").exists())
         self.assertFalse(list(archive_dir.glob(".unpack-*")))
 
-    def test_split_tar_zstd_and_zip(self):
-        for fmt in ("tar.zst", "zip"):
-            if fmt == "tar.zst" and (not shutil.which("tar") or not shutil.which("zstd")):
+    def test_split_tar_and_zip(self):
+        for fmt in ("tar", "tar.gz", "tar.bz2", "tar.xz", "tar.zst", "zip"):
+            if fmt.startswith("tar") and not shutil.which("tar"):
+                continue
+            program = {"tar.gz": "gzip", "tar.bz2": "bzip2",
+                       "tar.xz": "xz", "tar.zst": "zstd"}.get(fmt)
+            if program and not shutil.which(program):
                 continue
             with self.subTest(fmt=fmt):
                 archive = self.root / f"split.{fmt}"
@@ -112,6 +117,45 @@ class CliTests(unittest.TestCase):
                 destination = self.root / f"split-unpacked-{fmt}"
                 self.command("uark", parts[1], "-C", destination)
                 self.assert_round_trip(destination)
+
+    def test_tar_special_names_symlinks_and_progress(self):
+        if not shutil.which("tar"):
+            self.skipTest("tar is required")
+        source = self.root / "@目录 with spaces"
+        source.mkdir()
+        (source / "empty").mkdir()
+        for name in ("-option.txt", "@entry.txt", "line\nbreak.txt", "中文.txt"):
+            (source / name).write_text(name, encoding="utf-8")
+        (source / "link").symlink_to("中文.txt")
+        archive = self.root / "special.tar"
+        self.command("ark", source, "-o", archive)
+        destination = self.root / "special-unpacked"
+        result = self.command("uark", archive, "-C", destination)
+        restored = destination / source.name
+        self.assertTrue((restored / "empty").is_dir())
+        self.assertTrue((restored / "link").is_symlink())
+        self.assertEqual((restored / "link").read_bytes(), (source / "中文.txt").read_bytes())
+        for name in ("-option.txt", "@entry.txt", "line\nbreak.txt", "中文.txt"):
+            self.assertEqual((restored / name).read_bytes(), (source / name).read_bytes())
+        self.assertIn("100.0%", result.stderr)
+        # The final progress line must report a member read from tar's output,
+        # rather than remain at the directory from the first archive header.
+        final = result.stderr.strip().splitlines()[-1]
+        self.assertTrue(any(name in final for name in
+                            ("-option.txt", "@entry.txt", "break.txt", "中文.txt", "link", "empty")), final)
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS metadata only")
+    def test_tar_excludes_appledouble_metadata(self):
+        file = self.source / "中文.txt"
+        subprocess.run(["xattr", "-w", "com.apple.metadata:ark-uark-test",
+                        "metadata", str(file)], check=True)
+        archive = self.root / "metadata.tar"
+        self.command("ark", self.source, "-o", archive)
+        with tarfile.open(archive) as bundle:
+            members = bundle.getmembers()
+        self.assertFalse(any(Path(member.name).name.startswith("._") for member in members))
+        self.assertFalse(any("xattr" in key.lower()
+                             for member in members for key in member.pax_headers))
 
     def test_split_single_file_formats(self):
         source = self.source / "中文.txt"
