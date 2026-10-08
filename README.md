@@ -33,6 +33,19 @@ brew install python xz zstd
 
 只使用 `tar`、`tar.gz`、`tar.bz2` 或 ZIP 时，无须安装 `xz` / `zstd`。macOS 创建 tar 归档时不会附带 AppleDouble `._*` 元数据文件或扩展属性，方便与 Linux 交换文件。
 
+### 在 macOS 上通过 Homebrew 安装
+
+安装 Homebrew 后运行：
+
+```bash
+brew tap CuiEM/ark-uark https://github.com/CuiEM/ark-uark.git
+brew install CuiEM/ark-uark/ark-uark
+ark --help
+uark --help
+```
+
+本项目仓库同时提供 Homebrew tap。Homebrew 会自动安装 Python、`xz` 和 `zstd`，两个命令安装后可直接使用，支持 Apple Silicon 和 Intel Mac。更新时运行 `brew update` 和 `brew upgrade ark-uark`。
+
 ### 从 GitHub 源码安装
 
 从 GitHub 克隆项目：
@@ -54,6 +67,13 @@ pipx install git+https://github.com/CuiEM/ark-uark.git
 ```
 
 ### 卸载
+
+如果通过 Homebrew 安装：
+
+```bash
+brew uninstall ark-uark
+brew untap CuiEM/ark-uark
+```
 
 如果通过 `pipx` 安装：
 
@@ -169,6 +189,19 @@ brew install python xz zstd
 
 `xz` / `zstd` is unnecessary if you only use `tar`, `tar.gz`, `tar.bz2` or ZIP. Tar archives created on macOS omit AppleDouble `._*` metadata entries and extended attributes for portability to Linux.
 
+### Install on macOS with Homebrew
+
+With Homebrew installed, run:
+
+```bash
+brew tap CuiEM/ark-uark https://github.com/CuiEM/ark-uark.git
+brew install CuiEM/ark-uark/ark-uark
+ark --help
+uark --help
+```
+
+This project repository also serves as its Homebrew tap. Homebrew installs Python, `xz` and `zstd` automatically, making both commands available on Apple Silicon and Intel Macs. To update, run `brew update` followed by `brew upgrade ark-uark`.
+
 ### Install from GitHub source
 
 Clone the project from GitHub:
@@ -190,6 +223,13 @@ pipx install git+https://github.com/CuiEM/ark-uark.git
 ```
 
 ### Uninstall
+
+For a Homebrew installation:
+
+```bash
+brew uninstall ark-uark
+brew untap CuiEM/ark-uark
+```
 
 If you installed with `pipx`:
 
