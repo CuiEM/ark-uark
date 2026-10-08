@@ -162,6 +162,8 @@ uark --help
 
 项目采用 MIT License。
 
+维护者发布新版本的步骤见 [RELEASING.md](RELEASING.md)。
+
 ## English
 
 ### What it does
@@ -317,3 +319,5 @@ uark --help
 ```
 
 Licensed under the MIT License.
+
+See [RELEASING.md](RELEASING.md) for the maintainer release procedure.

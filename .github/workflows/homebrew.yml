@@ -1,0 +1,37 @@
+name: Homebrew
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Formula/**"
+      - ".github/workflows/homebrew.yml"
+  pull_request:
+    paths:
+      - "Formula/**"
+      - ".github/workflows/homebrew.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_ASK: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tap this checkout
+        run: brew tap CuiEM/ark-uark "$GITHUB_WORKSPACE"
+      - name: Install formula from source
+        run: brew install --formula --build-from-source CuiEM/ark-uark/ark-uark
+      - name: Test installed commands
+        run: brew test CuiEM/ark-uark/ark-uark
+      - name: Audit formula
+        run: brew audit --strict CuiEM/ark-uark/ark-uark
