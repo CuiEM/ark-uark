@@ -45,6 +45,23 @@ uark --help
 pipx install git+https://github.com/CuiEM/ark-uark.git
 ```
 
+### 卸载
+
+如果通过 `pipx` 安装：
+
+```bash
+pipx uninstall ark-uark
+```
+
+如果通过 `uv tool install` 安装，运行 `uv tool uninstall ark-uark`。如果按上面的步骤安装在项目虚拟环境中，先进入项目目录并激活环境，再运行：
+
+```bash
+. .venv/bin/activate
+python3 -m pip uninstall ark-uark
+```
+
+卸载命令不会删除克隆的源码目录。
+
 ### 常用命令
 
 ```bash
@@ -136,6 +153,23 @@ The commands are available while the virtual environment is active. Run `. .venv
 ```bash
 pipx install git+https://github.com/CuiEM/ark-uark.git
 ```
+
+### Uninstall
+
+If you installed with `pipx`:
+
+```bash
+pipx uninstall ark-uark
+```
+
+If you used `uv tool install`, run `uv tool uninstall ark-uark`. For an installation in the project virtual environment, enter the project directory, activate the environment, then run:
+
+```bash
+. .venv/bin/activate
+python3 -m pip uninstall ark-uark
+```
+
+Uninstalling does not remove the cloned source directory.
 
 ### Usage
 
