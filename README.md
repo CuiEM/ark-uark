@@ -1,54 +1,48 @@
 # ark / uark
 
-[中文](#中文) | [English](#english)
+> 用一个命令创建归档，用另一个命令自动识别并解压。
+>
+> Create archives with confidence. Extract them without remembering tar flags.
 
-Two small Linux and macOS commands for working with archives. `ark` creates archives;
-`uark` detects the archive format and extracts it. Both show a progress bar,
-the current file and an estimated time remaining.
+[![Tests](https://github.com/CuiEM/ark-uark/actions/workflows/tests.yml/badge.svg)](https://github.com/CuiEM/ark-uark/actions/workflows/tests.yml)
+[![Homebrew](https://github.com/CuiEM/ark-uark/actions/workflows/homebrew.yml/badge.svg)](https://github.com/CuiEM/ark-uark/actions/workflows/homebrew.yml)
+[![Latest release](https://img.shields.io/github/v/release/CuiEM/ark-uark?display_name=tag&sort=semver)](https://github.com/CuiEM/ark-uark/releases/latest)
+[![License](https://img.shields.io/github/license/CuiEM/ark-uark)](LICENSE)
+
+`ark` 和 `uark` 是一对轻量的命令行归档工具：
+
+- `ark` 创建 tar、压缩 tar、ZIP 或单文件压缩归档。
+- `uark` 根据文件内容自动识别格式并解压，不需要记住压缩参数。
+- 两个命令都显示进度、当前文件和预计剩余时间。
+- 支持把完整压缩流切成分卷，也支持从任意分卷开始恢复。
+
+支持 Linux、macOS Apple Silicon 和 Intel，运行时只依赖 Python 标准库及对应的系统压缩工具。
 
 ## 中文
 
-### 功能
+### 安装
 
-- `ark`：压缩文件或目录，可选择格式和分卷大小。
-- `uark`：根据文件内容识别格式并解压，无须记住 `tar` 的参数。
-- 两个命令都在终端显示进度条、当前文件和预计剩余时间。重定向输出时会降低刷新频率。
-
-### 环境要求
-
-支持 Linux 和 macOS（Apple Silicon / Intel）、Python 3.10 及以上版本。处理 tar 归档支持 Linux 的 GNU tar 和 macOS 自带的 BSD tar，无须在 macOS 上额外安装 GNU tar。使用相应压缩格式时，还需要系统安装 `gzip`、`bzip2`、`xz` 或 `zstd`。ZIP 由 Python 标准库处理，不需要额外的 Python 依赖。GNU tar 解压时可使用可选的 `stdbuf` / `gstdbuf` 改善文件名的刷新速度。
-
-例如在 Debian / Ubuntu 上安装完整的系统依赖：
-
-```bash
-sudo apt update
-sudo apt install python3 python3-venv tar gzip bzip2 xz-utils zstd
-```
-
-macOS 自带 `tar`、`gzip` 和 `bzip2`。通过 Homebrew 安装 Python 和其余压缩工具：
-
-```bash
-brew install python xz zstd
-```
-
-只使用 `tar`、`tar.gz`、`tar.bz2` 或 ZIP 时，无须安装 `xz` / `zstd`。macOS 创建 tar 归档时不会附带 AppleDouble `._*` 元数据文件或扩展属性，方便与 Linux 交换文件。
-
-### 在 macOS 上通过 Homebrew 安装
-
-安装 Homebrew 后运行：
+macOS 用户推荐使用 Homebrew：
 
 ```bash
 brew tap CuiEM/ark-uark https://github.com/CuiEM/ark-uark.git
 brew install CuiEM/ark-uark/ark-uark
+```
+
+Homebrew 会自动安装 Python、`xz` 和 `zstd`。安装完成后，两个命令立即可用：
+
+```bash
 ark --help
 uark --help
 ```
 
-本项目仓库同时提供 Homebrew tap。Homebrew 会自动安装 Python、`xz` 和 `zstd`，两个命令安装后可直接使用，支持 Apple Silicon 和 Intel Mac。更新时运行 `brew update` 和 `brew upgrade ark-uark`。
+也可以通过 `pipx` 安装：
 
-### 从 GitHub 源码安装
+```bash
+pipx install git+https://github.com/CuiEM/ark-uark.git
+```
 
-从 GitHub 克隆项目：
+从源码安装：
 
 ```bash
 git clone https://github.com/CuiEM/ark-uark.git
@@ -56,157 +50,107 @@ cd ark-uark
 python3 -m venv .venv
 . .venv/bin/activate
 python3 -m pip install .
-ark --help
-uark --help
 ```
 
-激活虚拟环境后即可使用两个命令。以后进入项目目录，运行 `. .venv/bin/activate` 即可再次使用。若已安装 `pipx`，也可以直接安装到用户命令目录：
+Python 安装只负责提供命令。使用 `tar.gz`、`tar.bz2`、`tar.xz` 或 `tar.zst` 时，还需要系统中有对应的 `tar` 和压缩工具；ZIP 使用 Python 标准库，不需要额外依赖。
+
+### 30 秒上手
 
 ```bash
-pipx install git+https://github.com/CuiEM/ark-uark.git
+# 默认创建 tar.gz
+ark photos
+
+# 从输出文件名推断格式
+ark photos -o photos.zip
+
+# 显式选择格式
+ark photos -f tar.zst -o photos.tar.zst
+
+# 将压缩流切成每卷最多 2 GiB 的分卷
+ark photos -f tar.zst -v 2G -o photos.tar.zst
+
+# 指定任意一卷即可自动找到同目录下的其他分卷
+uark photos.tar.zst.part0000
+
+# 指定解压目录
+uark photos.zip -C restored
+
+# 合并多个文件或目录
+ark a.txt b.txt -o files.zip
 ```
+
+### 支持的格式
+
+| 类别 | `ark -f` | 输入 | 说明 |
+| --- | --- | --- | --- |
+| Tar | `tar` | 文件、目录或多个路径 | 使用系统 `tar` |
+| 压缩 Tar | `tar.gz`、`tar.bz2`、`tar.xz`、`tar.zst` | 文件、目录或多个路径 | 适合目录归档 |
+| ZIP | `zip` | 文件、目录或多个路径 | 不支持符号链接 |
+| 单文件压缩 | `gz`、`bz2`、`xz`、`zst` | 一个普通文件 | 不接受目录 |
+
+7z 和 RAR 目前只会被识别并给出提示，不会被解压。
+
+### 分卷与安全行为
+
+分卷是完整压缩流按字节切分，文件名形如 `archive.tar.zst.part0000`，不是传统 ZIP 的 `.z01` 结构。所有分卷必须放在同一目录，编号从 `part0000` 开始且不能缺失。
+
+不指定 `-v` 时只生成一个归档。已有同名归档或分卷时，`ark` 会报错并保留原文件。`uark` 默认解压到归档所在目录；如果归档的顶层路径已存在，会停止解压以避免覆盖，可用 `-C` 指定空目录。
+
+要交给其他工具处理分卷，先按顺序合并：
+
+```bash
+cat photos.tar.zst.part* > photos.tar.zst
+```
+
+解压不可信来源前，请先检查归档内容；`uark` 不提供沙箱隔离。
 
 ### 卸载
 
-如果通过 Homebrew 安装：
+Homebrew：
 
 ```bash
 brew uninstall ark-uark
 brew untap CuiEM/ark-uark
 ```
 
-如果通过 `pipx` 安装：
+pipx：
 
 ```bash
 pipx uninstall ark-uark
 ```
 
-如果通过 `uv tool install` 安装，运行 `uv tool uninstall ark-uark`。如果按上面的步骤安装在项目虚拟环境中，先进入项目目录并激活环境，再运行：
+虚拟环境：
 
 ```bash
 . .venv/bin/activate
 python3 -m pip uninstall ark-uark
 ```
 
-卸载命令不会删除克隆的源码目录。
-
-### 常用命令
-
-```bash
-# 默认格式为 tar.gz，输出到当前目录
-ark photos
-
-# 指定格式和输出文件；也可以只用 -o 后缀推断格式
-ark photos -f tar.zst -o photos.tar.zst
-ark photos -o photos.zip
-
-# 每卷最多 2 GiB；输出 photos.tar.zst.part0000、part0001 等
-ark photos -f tar.zst -v 2G -o photos.tar.zst
-
-# 指定任意一卷，uark 会寻找同一目录下的其他分卷；默认解压到压缩包所在目录
-uark photos.tar.zst.part0000
-
-# 也可指定解压目录
-uark photos.zip -C restored
-
-# 多个源文件可以合并为一个归档
-ark a.txt b.txt -o files.zip
-```
-
-### 格式与分卷
-
-| 格式 | `ark -f` | 输入 |
-| --- | --- | --- |
-| Tar 及压缩 Tar | `tar`、`tar.gz`、`tar.bz2`、`tar.xz`、`tar.zst` | 文件、目录或多个路径 |
-| ZIP | `zip` | 文件、目录或多个路径；不支持符号链接 |
-| 单文件压缩 | `gz`、`bz2`、`xz`、`zst` | 单个普通文件 |
-
-目前不支持 7z 和 RAR。`uark` 会识别并提示这两类文件，但不会解压。
-
-`-v` 接受字节数或 `K`、`M`、`G`、`T`、`KiB`、`MiB`、`GiB`、`TiB`，均按 1024 进制计算。例如 `-v 1.5G`。不指定 `-v` 时只生成一个文件。已有同名输出或分卷时，`ark` 会报错，不会覆盖它们。
-
-`uark` 默认把内容解压到压缩包所在目录，不额外建立同名文件夹。若归档内的顶层路径已存在，默认解压会报错，避免覆盖原有内容；可用 `-C` 选择其他位置。
-
-分卷是把**完整压缩流按字节切开**，不是传统 ZIP 的 `.z01` 多卷格式。`uark` 会自动拼接；其他工具使用前，可按顺序合并：
-
-```bash
-cat photos.tar.zst.part* > photos.tar.zst
-```
-
-所有分卷必须放在同一目录，编号从 `part0000` 开始且不能缺失。预计时间按已处理字节计算，压缩率或磁盘速度变化时会波动。解压来源不可信的归档前，请先检查其内容；`uark` 不是隔离沙箱。
-
-### 开发与测试
-
-```bash
-python3 -m unittest discover -s tests -v
-```
-
-### 构建安装包
-
-在虚拟环境中构建 wheel 和源码包：
-
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python3 -m pip install build
-python3 -m build
-```
-
-产物位于 `dist/`。wheel 为纯 Python 包，可用于 macOS 的 Apple Silicon 和 Intel Mac，以及 Linux；运行时仍需上述 Python 和系统工具。在目标机器的虚拟环境中安装：
-
-```bash
-python3 -m pip install dist/ark_uark-*.whl
-ark --help
-uark --help
-```
-
-项目采用 MIT License。
-
-维护者发布新版本的步骤见 [RELEASING.md](RELEASING.md)。
-
 ## English
 
-### What it does
+### Install
 
-- `ark` creates archives with a selected format and optional volume size.
-- `uark` identifies an archive from its contents and extracts it.
-- Both commands show a progress bar, current file and ETA. Output is less frequent when redirected.
-
-### Requirements
-
-Linux or macOS (Apple Silicon / Intel), with Python 3.10 or newer. Tar archives support GNU tar on Linux and the built-in BSD tar on macOS; installing GNU tar on macOS is unnecessary. Install `gzip`, `bzip2`, `xz` or `zstd` for the corresponding compression formats. ZIP uses Python's standard library; there are no third-party Python runtime dependencies. Optional `stdbuf` / `gstdbuf` helps update file names promptly when extracting with GNU tar.
-
-On Debian / Ubuntu, install the full set of system tools with:
-
-```bash
-sudo apt update
-sudo apt install python3 python3-venv tar gzip bzip2 xz-utils zstd
-```
-
-macOS includes `tar`, `gzip` and `bzip2`. Install Python and the remaining compression tools with Homebrew:
-
-```bash
-brew install python xz zstd
-```
-
-`xz` / `zstd` is unnecessary if you only use `tar`, `tar.gz`, `tar.bz2` or ZIP. Tar archives created on macOS omit AppleDouble `._*` metadata entries and extended attributes for portability to Linux.
-
-### Install on macOS with Homebrew
-
-With Homebrew installed, run:
+On macOS, Homebrew is the recommended option:
 
 ```bash
 brew tap CuiEM/ark-uark https://github.com/CuiEM/ark-uark.git
 brew install CuiEM/ark-uark/ark-uark
+```
+
+Homebrew installs Python, `xz` and `zstd` automatically. Verify the installation with:
+
+```bash
 ark --help
 uark --help
 ```
 
-This project repository also serves as its Homebrew tap. Homebrew installs Python, `xz` and `zstd` automatically, making both commands available on Apple Silicon and Intel Macs. To update, run `brew update` followed by `brew upgrade ark-uark`.
+Install with `pipx`:
 
-### Install from GitHub source
+```bash
+pipx install git+https://github.com/CuiEM/ark-uark.git
+```
 
-Clone the project from GitHub:
+Or install from source:
 
 ```bash
 git clone https://github.com/CuiEM/ark-uark.git
@@ -214,94 +158,91 @@ cd ark-uark
 python3 -m venv .venv
 . .venv/bin/activate
 python3 -m pip install .
-ark --help
-uark --help
 ```
 
-The commands are available while the virtual environment is active. Run `. .venv/bin/activate` when you return to the project later. If `pipx` is installed, you can instead install the commands into your user command directory:
+The Python package provides the commands but does not bundle system compressors. Tar archives require `tar` and the matching compressor; ZIP uses Python's standard library.
+
+### Quick start
 
 ```bash
-pipx install git+https://github.com/CuiEM/ark-uark.git
+# Create tar.gz by default
+ark photos
+
+# Infer the format from the output suffix
+ark photos -o photos.zip
+
+# Choose a format explicitly
+ark photos -f tar.zst -o photos.tar.zst
+
+# Split the compressed stream into 2 GiB volumes
+ark photos -f tar.zst -v 2G -o photos.tar.zst
+
+# Point uark at any volume; it finds the rest beside it
+uark photos.tar.zst.part0000
+
+# Extract into a chosen directory
+uark photos.zip -C restored
+
+# Combine multiple files or directories
+ark a.txt b.txt -o files.zip
 ```
+
+### Supported formats
+
+| Category | `ark -f` | Input | Notes |
+| --- | --- | --- | --- |
+| Tar | `tar` | Files, directories or multiple paths | Uses the system `tar` |
+| Compressed tar | `tar.gz`, `tar.bz2`, `tar.xz`, `tar.zst` | Files, directories or multiple paths | Best for directory archives |
+| ZIP | `zip` | Files, directories or multiple paths | Symbolic links are unsupported |
+| Single-file compression | `gz`, `bz2`, `xz`, `zst` | One regular file | Directories are rejected |
+
+7z and RAR are recognized and reported, but are not extracted.
+
+### Volumes and safety
+
+Volumes are consecutive byte slices of one compressed stream, named like `archive.tar.zst.part0000`. They are not conventional ZIP `.z01` volumes. Keep every volume together, starting at `part0000` with no gaps.
+
+Without `-v`, `ark` writes one archive. Existing archives and volumes are never overwritten. By default, `uark` extracts beside the archive and stops if an archived top-level path already exists; use `-C` to choose an empty destination.
+
+To use another tool, join the volumes first:
+
+```bash
+cat photos.tar.zst.part* > photos.tar.zst
+```
+
+Inspect untrusted archives before extracting them; `uark` is not a sandbox.
 
 ### Uninstall
 
-For a Homebrew installation:
+Homebrew:
 
 ```bash
 brew uninstall ark-uark
 brew untap CuiEM/ark-uark
 ```
 
-If you installed with `pipx`:
+pipx:
 
 ```bash
 pipx uninstall ark-uark
 ```
 
-If you used `uv tool install`, run `uv tool uninstall ark-uark`. For an installation in the project virtual environment, enter the project directory, activate the environment, then run:
+Virtual environment:
 
 ```bash
 . .venv/bin/activate
 python3 -m pip uninstall ark-uark
 ```
 
-Uninstalling does not remove the cloned source directory.
+## Development
 
-### Usage
-
-```bash
-# tar.gz by default; write to the current directory
-ark photos
-
-# Select a format explicitly, or infer it from the output suffix
-ark photos -f tar.zst -o photos.tar.zst
-ark photos -o photos.zip
-
-# Limit each volume to 2 GiB
-ark photos -f tar.zst -v 2G -o photos.tar.zst
-
-# Point uark at any volume; it finds the others beside it and extracts alongside them
-uark photos.tar.zst.part0000
-
-# Or choose a destination directory
-uark photos.zip -C restored
-
-# Put multiple inputs into one archive
-ark a.txt b.txt -o files.zip
-```
-
-### Formats and volumes
-
-| Format | `ark -f` | Input |
-| --- | --- | --- |
-| Tar and compressed Tar | `tar`, `tar.gz`, `tar.bz2`, `tar.xz`, `tar.zst` | Files, directories or multiple paths |
-| ZIP | `zip` | Files, directories or multiple paths; symbolic links are unsupported |
-| Single-file compression | `gz`, `bz2`, `xz`, `zst` | One regular file |
-
-7z and RAR are not supported yet. `uark` recognizes them and reports that it cannot extract them.
-
-`-v` accepts bytes or `K`, `M`, `G`, `T`, `KiB`, `MiB`, `GiB`, `TiB`. Units use powers of 1024, so `-v 1.5G` is valid. Without `-v`, `ark` writes one file. Existing archives and volumes are never overwritten.
-
-By default, `uark` extracts beside the archive without adding a wrapper directory. It reports an error if an archived top-level path already exists there, preventing an overwrite. Use `-C` to choose another destination.
-
-Volumes are **consecutive slices of one compressed byte stream**, not conventional ZIP `.z01` volumes. `uark` reads them directly. To use another tool, join the volumes in order first:
-
-```bash
-cat photos.tar.zst.part* > photos.tar.zst
-```
-
-Keep every volume in the same directory, starting at `part0000` with no gaps. The ETA is based on bytes processed and may change with compression ratio or disk speed. Inspect untrusted archives before extracting them; `uark` is not a sandbox.
-
-### Development and tests
+Run the test suite locally:
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
-### Build distribution packages
-
-Build a wheel and source distribution in a virtual environment:
+Build the wheel and source distribution:
 
 ```bash
 python3 -m venv .venv
@@ -310,14 +251,8 @@ python3 -m pip install build
 python3 -m build
 ```
 
-Artifacts are written to `dist/`. The pure Python wheel works on Apple Silicon and Intel Macs, as well as Linux, and still requires the Python version and system tools listed above. Install it in a virtual environment on the target machine:
+Release and Homebrew maintenance instructions are in [RELEASING.md](RELEASING.md). The Homebrew formula lives at [Formula/ark-uark.rb](Formula/ark-uark.rb).
 
-```bash
-python3 -m pip install dist/ark_uark-*.whl
-ark --help
-uark --help
-```
+## License
 
-Licensed under the MIT License.
-
-See [RELEASING.md](RELEASING.md) for the maintainer release procedure.
+[MIT](LICENSE)
